@@ -8,22 +8,24 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# ✅ Load model safely (IMPORTANT FIX)
-model = tf.keras.models.load_model("crop_model.h5", compile=False)
+model = None  # Lazy load
 
-# Class names
 class_names = [
     "Tomato_Early_blight",
     "Tomato_Late_blight",
     "Tomato_healthy"
 ]
 
-# Treatment dictionary
 treatment = {
     "Tomato_Late_blight": "Use copper-based fungicide and remove infected leaves.",
     "Tomato_Early_blight": "Apply fungicide and improve air circulation.",
     "Tomato_healthy": "No disease detected. Keep monitoring."
 }
+
+def load_model():
+    global model
+    if model is None:
+        model = tf.keras.models.load_model("crop_model.h5", compile=False)
 
 @app.route("/")
 def home():
@@ -31,6 +33,8 @@ def home():
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    load_model()  # Load only when needed
+
     if "image" not in request.files:
         return jsonify({"error": "No image uploaded"}), 400
 
@@ -54,8 +58,3 @@ def predict():
         "confidence": round(confidence, 2),
         "suggestion": suggestion
     })
-
-# IMPORTANT for Render
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
