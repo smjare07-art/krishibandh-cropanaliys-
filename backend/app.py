@@ -8,10 +8,10 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Load trained model
-model = tf.keras.models.load_model("crop_model.h5")
+# ✅ Load model safely (IMPORTANT FIX)
+model = tf.keras.models.load_model("crop_model.h5", compile=False)
 
-# Manually define class names (IMPORTANT)
+# Class names
 class_names = [
     "Tomato_Early_blight",
     "Tomato_Late_blight",
@@ -55,8 +55,7 @@ def predict():
         "suggestion": suggestion
     })
 
-
-
+# IMPORTANT for Render
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
