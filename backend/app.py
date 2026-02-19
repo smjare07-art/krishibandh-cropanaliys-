@@ -10,34 +10,35 @@ app = Flask(__name__)
 CORS(app)
 
 # ===============================
-# SAFE MODEL LOADING
+# SAFE MODEL LOAD
 # ===============================
 
 model = None
-model_path = os.path.join(os.path.dirname(__file__), "crop_model.h5")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "crop_model.h5")
 
 try:
-    model = tf.keras.models.load_model(model_path, compile=False)
-    print("✅ Model loaded successfully")
+    model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+    print("✅ Model Loaded Successfully")
 except Exception as e:
-    print("❌ Model loading failed:", e)
+    print("❌ Model Load Error:", e)
 
 # ===============================
-# LOAD AGRICULTURE DATA
+# OPTIONAL AGRICULTURE DATA
 # ===============================
 
 agri_data = {}
-data_path = os.path.join(os.path.dirname(__file__), "agriculture_data.json")
+DATA_PATH = os.path.join(BASE_DIR, "agriculture_data.json")
 
-if os.path.exists(data_path):
-    with open(data_path, "r", encoding="utf-8") as f:
+if os.path.exists(DATA_PATH):
+    with open(DATA_PATH, "r", encoding="utf-8") as f:
         agri_data = json.load(f)
-    print("✅ Agriculture data loaded")
+    print("✅ Agriculture Data Loaded")
 else:
     print("⚠ agriculture_data.json not found")
 
 # ===============================
-# CLASS NAMES
+# CLASS NAMES (MODEL ORDER)
 # ===============================
 
 class_names = [
@@ -65,7 +66,7 @@ def predict():
 
         file = request.files["image"]
 
-        temp_path = os.path.join(os.path.dirname(__file__), "temp.jpg")
+        temp_path = os.path.join(BASE_DIR, "temp.jpg")
         file.save(temp_path)
 
         img = image.load_img(temp_path, target_size=(128, 128))
@@ -73,6 +74,12 @@ def predict():
         img_array = np.expand_dims(img_array, axis=0) / 255.0
 
         prediction = model.predict(img_array)
+
+        if isinstance(prediction, list):
+            prediction = prediction[0]
+
+        prediction = np.array(prediction).flatten()
+
         class_index = int(np.argmax(prediction))
         confidence = float(np.max(prediction) * 100)
 
@@ -84,9 +91,9 @@ def predict():
             "disease": disease,
             "confidence": round(confidence, 2),
             "causes": details.get("causes", []),
-            "water_role": details.get("water_role", "Information not available"),
+            "water_role": details.get("water_role", ""),
             "fertilizer": details.get("fertilizer_schedule", {}),
-            "treatment": details.get("treatment", "Information not available")
+            "treatment": details.get("treatment", "उपाय उपलब्ध नाही")
         })
 
     except Exception as e:
