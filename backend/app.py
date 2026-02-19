@@ -31,7 +31,10 @@ def load_model():
 def home():
     return "Crop Disease AI Backend Running 🚀"
 
-@app.route("/predict", methods=["POST"])
+@app.route("/predict", methods=["GET", "POST"])
+def predict():
+    if request.method == "GET":
+        return "Use POST method with image upload"
 def predict():
     load_model()  # Load only when needed
 
