@@ -4,33 +4,22 @@ import tensorflow as tf
 import numpy as np
 from tensorflow.keras.preprocessing import image
 import os
+import traceback
 
 app = Flask(__name__)
 CORS(app)
 
-# ===============================
-# BASE DIRECTORY
-# ===============================
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# ===============================
-# LOAD EXPORTED MODEL
-# ===============================
-
 MODEL_PATH = os.path.join(BASE_DIR, "crop_model")
 
-model = None
+# Load SavedModel
 try:
-    model = tf.keras.models.load_model(MODEL_PATH)
-    print("✅ Model Loaded Successfully")
+    model = tf.saved_model.load(MODEL_PATH)
+    infer = model.signatures["serve"]
+    print("✅ SavedModel Loaded Successfully")
 except Exception as e:
     print("❌ Model Load Error:", e)
-
-# ===============================
-# UPDATE THESE 15 CLASS NAMES
-# ⚠ Replace with YOUR dataset folder names
-# ===============================
+    model = None
 
 class_names = [
     "Apple_scab",
@@ -50,13 +39,9 @@ class_names = [
     "Tomato_healthy"
 ]
 
-# ===============================
-# ROUTES
-# ===============================
-
 @app.route("/")
 def home():
-    return "Krishibandh Crop Analysis API Running 🚀"
+    return "Krishibandh API Running 🚀"
 
 @app.route("/predict", methods=["POST"])
 def predict():
@@ -68,7 +53,6 @@ def predict():
             return jsonify({"error": "No image uploaded"}), 400
 
         file = request.files["image"]
-
         temp_path = os.path.join(BASE_DIR, "temp.jpg")
         file.save(temp_path)
 
@@ -76,37 +60,24 @@ def predict():
         img_array = image.img_to_array(img)
         img_array = np.expand_dims(img_array, axis=0) / 255.0
 
-        prediction = model.predict(img_array)
-        prediction = np.array(prediction).flatten()
+        # 🔥 IMPORTANT FIX HERE
+        prediction = infer(tf.constant(img_array))["output_0"].numpy()
+        prediction = prediction.flatten()
 
         print("Prediction shape:", prediction.shape)
 
-        if len(prediction) != len(class_names):
-            return jsonify({
-                "error": "Class count mismatch",
-                "model_output": len(prediction),
-                "class_names": len(class_names)
-            }), 500
-
-        class_index = int(np.argmax(prediction))
+        index = int(np.argmax(prediction))
         confidence = float(np.max(prediction) * 100)
 
-        disease = class_names[class_index]
-
         return jsonify({
-            "disease": disease,
-            "confidence": round(confidence, 2),
-            "treatment": "Apply recommended fungicide and maintain proper irrigation."
+            "disease": class_names[index],
+            "confidence": round(confidence, 2)
         })
 
     except Exception as e:
-        print("❌ Prediction Error:", e)
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
-
-# ===============================
-# RUN
-# ===============================
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
