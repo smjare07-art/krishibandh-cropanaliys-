@@ -4,11 +4,41 @@ import tensorflow as tf
 import numpy as np
 from tensorflow.keras.preprocessing import image
 import os
+import json
 
 app = Flask(__name__)
 CORS(app)
 
-model = None  # Lazy load
+# ===============================
+# SAFE MODEL LOADING
+# ===============================
+
+model = None
+model_path = os.path.join(os.path.dirname(__file__), "crop_model.h5")
+
+try:
+    model = tf.keras.models.load_model(model_path, compile=False)
+    print("✅ Model loaded successfully")
+except Exception as e:
+    print("❌ Model loading failed:", e)
+
+# ===============================
+# LOAD AGRICULTURE DATA
+# ===============================
+
+agri_data = {}
+data_path = os.path.join(os.path.dirname(__file__), "agriculture_data.json")
+
+if os.path.exists(data_path):
+    with open(data_path, "r", encoding="utf-8") as f:
+        agri_data = json.load(f)
+    print("✅ Agriculture data loaded")
+else:
+    print("⚠ agriculture_data.json not found")
+
+# ===============================
+# CLASS NAMES
+# ===============================
 
 class_names = [
     "Tomato_Early_blight",
@@ -16,48 +46,58 @@ class_names = [
     "Tomato_healthy"
 ]
 
-treatment = {
-    "Tomato_Late_blight": "Use copper-based fungicide and remove infected leaves.",
-    "Tomato_Early_blight": "Apply fungicide and improve air circulation.",
-    "Tomato_healthy": "No disease detected. Keep monitoring."
-}
-
-def load_model():
-    global model
-    if model is None:
-        model = tf.keras.models.load_model("crop_model.h5", compile=False)
+# ===============================
+# ROUTES
+# ===============================
 
 @app.route("/")
 def home():
-    return "Crop Disease AI Backend Running 🚀"
+    return "Krishibandh Crop Analysis API Running 🚀"
 
-@app.route("/predict", methods=["GET", "POST"])
+@app.route("/predict", methods=["POST"])
 def predict():
-    if request.method == "GET":
-        return "Use POST method with image upload"
-def predict():
-    load_model()  # Load only when needed
+    try:
+        if model is None:
+            return jsonify({"error": "Model not loaded"}), 500
 
-    if "image" not in request.files:
-        return jsonify({"error": "No image uploaded"}), 400
+        if "image" not in request.files:
+            return jsonify({"error": "No image uploaded"}), 400
 
-    file = request.files["image"]
-    filepath = "temp.jpg"
-    file.save(filepath)
+        file = request.files["image"]
 
-    img = image.load_img(filepath, target_size=(128,128))
-    img_array = image.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0) / 255.0
+        temp_path = os.path.join(os.path.dirname(__file__), "temp.jpg")
+        file.save(temp_path)
 
-    prediction = model.predict(img_array)
-    class_index = int(np.argmax(prediction))
-    confidence = float(np.max(prediction) * 100)
+        img = image.load_img(temp_path, target_size=(128, 128))
+        img_array = image.img_to_array(img)
+        img_array = np.expand_dims(img_array, axis=0) / 255.0
 
-    disease = class_names[class_index]
-    suggestion = treatment.get(disease, "No suggestion available")
+        prediction = model.predict(img_array)
+        class_index = int(np.argmax(prediction))
+        confidence = float(np.max(prediction) * 100)
 
-    return jsonify({
-        "disease": disease,
-        "confidence": round(confidence, 2),
-        "suggestion": suggestion
-    })
+        disease = class_names[class_index]
+
+        details = agri_data.get(disease, {})
+
+        return jsonify({
+            "disease": disease,
+            "confidence": round(confidence, 2),
+            "causes": details.get("causes", []),
+            "water_role": details.get("water_role", "Information not available"),
+            "fertilizer": details.get("fertilizer_schedule", {}),
+            "treatment": details.get("treatment", "Information not available")
+        })
+
+    except Exception as e:
+        print("❌ Prediction Error:", e)
+        return jsonify({"error": str(e)}), 500
+
+
+# ===============================
+# RUN
+# ===============================
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)

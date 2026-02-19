@@ -1,0 +1,17 @@
+{
+  "Tomato_Late_blight": {
+    "causes": [
+      "जास्त आर्द्रता",
+      "थंड हवामान",
+      "जमिनीत पाणी साचणे"
+    ],
+    "water_role": "जास्त पाण्यामुळे बुरशी वाढते.",
+    "fertilizer_schedule": {
+      "0-20_days": "DAP + Urea",
+      "20-40_days": "NPK 19:19:19",
+      "flowering": "12:61:0",
+      "fruiting": "00:00:50"
+    },
+    "treatment": "कॉपर फंगीसाइड वापरा."
+  }
+}
