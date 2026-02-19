@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+temp.jpg
+test.JPG
+
+# Ignore dataset
+backend/dataset/
+
+# Ignore database
+backend/database.db
